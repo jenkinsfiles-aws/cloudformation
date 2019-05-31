@@ -87,6 +87,8 @@ pipeline {
       steps {
         dir ("${params.WORKING_DIR}") {
            sh "aws cloudformation create-stack --stack-name ${params.STACK_NAME} --template-body file://${params.TEMPLATE_FILE_PATH} --region ${params.REGION} ${params.EXTRA_ARGS}"
+           sh "aws cloudformation wait stack-create-complete --stack-name ${params.STACK_NAME} --region ${params.REGION} ${params.EXTRA_ARGS}"
+           sh "aws cloudformation describe-stacks --stack-name ${params.STACK_NAME} --region ${params.REGION} ${params.EXTRA_ARGS}"
         }
       }
     }
