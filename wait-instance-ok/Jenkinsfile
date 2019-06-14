@@ -1,0 +1,50 @@
+#!groovy
+
+pipeline {
+
+  agent any
+
+  parameters {
+    string(
+      name: 'EXTRA_ARGS',
+      defaultValue: '',
+      description: 'CloudFormation extra arguments'
+    )
+    string(
+      name: 'REGION',
+      defaultValue: '',
+      description: 'CloudFormation region'
+    )
+    string(
+      name: 'STACK_NAME',
+      defaultValue: '',
+      description: 'CloudFormation stack name'
+    )
+  }
+
+  stages {
+    stage('Wait until EC2 instance is ok') {
+      steps {
+        dir ("${params.WORKING_DIR}") {
+           script {
+             def instanceId= sh(
+                               returnStdout: true,
+                               script: "aws cloudformation describe-stacks \
+                                        --stack-name ${params.STACK_NAME} \
+                                        --region ${params.REGION} \
+                                        ${params.EXTRA_ARGS} \
+                                        | jq '.Stacks[].Outputs[].OutputValue' \
+                                        | sed -e 's/\"//g' \
+                                        | awk 'NR==1'"
+                             ).trim()
+
+             sh "aws ec2 wait instance-status-ok \
+                 --instance-ids $instanceId \
+                 --region ${params.REGION}  \
+                 ${params.EXTRA_ARGS}"
+          }
+        }
+      }
+    }
+  }
+}
