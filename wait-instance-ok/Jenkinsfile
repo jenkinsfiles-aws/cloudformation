@@ -27,21 +27,25 @@ pipeline {
       steps {
         dir ("${params.WORKING_DIR}") {
            script {
-             def instanceId= sh(
-                               returnStdout: true,
-                               script: "aws cloudformation describe-stacks \
+             def instanceId = sh(
+                                returnStdout: true,
+                                script: "aws cloudformation describe-stacks \
                                         --stack-name ${params.STACK_NAME} \
                                         --region ${params.REGION} \
                                         ${params.EXTRA_ARGS} \
                                         | jq '.Stacks[].Outputs[].OutputValue' \
                                         | sed -e 's/\"//g' \
                                         | awk 'NR==1'"
-                             ).trim()
+                              ).trim()
 
-             sh "aws ec2 wait instance-status-ok \
-                 --instance-ids $instanceId \
-                 --region ${params.REGION}  \
-                 ${params.EXTRA_ARGS}"
+             if ( instanceId =~ /^i-*/ ) {
+               sh "aws ec2 wait instance-status-ok \
+                   --instance-ids $instanceId \
+                   --region ${params.REGION}  \
+                   ${params.EXTRA_ARGS}"
+             } else {
+               error "$instanceId\n Check if stack name is vaild or stack is ready."
+             }
           }
         }
       }
