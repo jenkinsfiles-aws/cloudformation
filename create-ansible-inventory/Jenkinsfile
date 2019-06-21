@@ -16,11 +16,6 @@ pipeline {
       description: 'Ansible Inventory file name. The file would be stored to $ANSIBLE_INVENTORY_DIR, which is defined in Jenkins Server as an environment variable'
     )
     string(
-      name: 'INVENTORY_GROUP_NAME',
-      defaultValue: 'centos7',
-      description: 'Group name defined in Ansible Inventory file'
-    )
-    string(
       name: 'REGION',
       defaultValue: '',
       description: 'CloudFormation region'
@@ -50,20 +45,128 @@ pipeline {
       steps {
         dir ("${params.WORKING_DIR}") {
            script {
-             def ip4adress = sh(
-                               returnStdout: true,
-                               script: "aws cloudformation describe-stacks --stack-name ${params.STACK_NAME} --region ${params.REGION} ${params.EXTRA_ARGS} | jq '.Stacks[].Outputs[].OutputValue' | sed -e 's/\"//g' | awk 'NR==2'"
-                             ).trim()
+             // Get VPCid to select EC2 instance running on the same VPC
+             def vpcId           = sh (
+                                         returnStdout: true,
+                                         script: " aws cloudformation describe-stacks \
+                                                  --stack-name ${params.STACK_NAME} \
+                                                  --region ${params.REGION} \
+                                                  ${params.EXTRA_ARGS} \
+                                                  | jq '.Stacks[].Outputs[].OutputValue' \
+                                                  | sed -e 's/\"//g'"
+                                      ).trim()
 
+             // Check if stack exists
+             if ( vpcId =~ /^vpc-*/ ) {
+               println vpcId
+             } else {
+               error "Check if stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
+             }
+
+             // JSON file to be parsed
+             def output_json = "output.json"
+
+             // Create JSON file from aws cloudformation command
+             sh "aws ec2 describe-instances \
+                 --filters 'Name=vpc-id, Values=$vpcId' \
+                 --region ${params.REGION} \
+                 ${params.EXTRA_ARGS} > $output_json"
+
+             def ansible_user    = sh (
+                                         returnStdout: true,
+                                         script: "cat $output_json \
+                                                 | jq '.Reservations[].Instances[].Tags' \
+                                                 | jq 'from_entries' \
+                                                 | grep ansible_user \
+                                                 | sed -e 's/\"//g' \
+                                                 | sed -e 's/ansible_user: //g' \
+                                                 | sed -e 's/\\,//g' \
+                                                 | sed -e 's/^ *//g'"
+                                      ).trim().split()
+
+             def ansible_port    = sh (
+                                         returnStdout: true,
+                                         script: "cat $output_json \
+                                                 | jq '.Reservations[].Instances[].Tags' \
+                                                 | jq 'from_entries' \
+                                                 | grep ansible_port \
+                                                 | sed -e 's/\"//g' \
+                                                 | sed -e 's/ansible_port: //g' \
+                                                 | sed -e 's/\\,//g' \
+                                                 | sed -e 's/^ *//g'"
+                                      ).trim().split()
+
+             def inventory_group = sh (
+                                         returnStdout: true,
+                                         script: "cat $output_json \
+                                                 | jq '.Reservations[].Instances[].Tags' \
+                                                 | jq 'from_entries' \
+                                                 | grep ansible_inventory_group_name \
+                                                 | sed -e 's/\"//g' \
+                                                 | sed -e 's/ansible_inventory_group_name: //g' \
+                                                 | sed -e 's/\\,//g' \
+                                                 | sed -e 's/^ *//g'"
+                                      ).trim().split()
+
+             def ip4address      = sh (
+                                         returnStdout: true,
+                                         script: "cat $output_json \
+                                                 | jq '.Reservations[].Instances[].PublicIpAddress' \
+                                                 | sed -e 's/\"//g'"
+                                      ).trim().split()
+
+             def instance_nums   = sh (
+                                         returnStdout: true,
+                                         script: "cat $output_json \
+                                                 | jq '.Reservations[].Instances[].InstanceId' \
+                                                 | sed -e 's/\"//g'"
+                                      ).trim().split().size()
+
+             // Check if more than one EC2 instance is created
+             if ( instance_nums == 0 ) {
+               error "Cannot get EC2 instance information.\n\
+Check if CloudFormation template is vaild format."
+             }
+
+             // Check if IP4 address is set
+             if ( ip4address.size() != instance_nums ) {
+               error "Cannot get IP4 address information.\n\
+Check if CloudFormation template is vaild format."
+             }
+
+             // Check if ansible_user is set
+             if ( ansible_user.size() != instance_nums ) {
+               error "Cannot get Ansible inventory ansible_user information.\n\
+Check if CloudFormation template is vaild format."
+             }
+
+             // Check if inventory_group is set
+             if ( inventory_group.size() != instance_nums ) {
+               error "Cannot get Ansible inventory inventory_group information.\n\
+Check if CloudFormation template is vaild format."
+             }
+
+             // Create Ansible Inventory file
              def inventory = """all:
   hosts:
-    ${params.INVENTORY_GROUP_NAME}:
-      ansible_host: $ip4adress
-      ansible_port: 22
-      ansible_user: centos
 """
+             writeFile file: 'ansible_inventory.txt', text: "$inventory"
 
-             writeFile file: "${env.ANSIBLE_INVENTORY_DIR}/${params.INVENTORY_FILE_NAME}", text: "$inventory"
+             for (i = 0; i < ip4address.size(); i++) {
+               def group = inventory_group[i]
+               sh "echo '    $group' >> ansible_inventory.txt"
+
+               def host = ip4address[i]
+               sh "echo '      ansible_host: $host' >> ansible_inventory.txt"
+
+               def user = ansible_user[i]
+               sh "echo '      ansible_user: $user' >> ansible_inventory.txt"
+
+               def port = ansible_port[i]
+               sh "echo '      ansible_port: $port' >> ansible_inventory.txt"
+             }
+
+             sh "cat ansible_inventory.txt > ${env.ANSIBLE_INVENTORY_DIR}/${params.INVENTORY_FILE_NAME}"
           }
         }
       }
