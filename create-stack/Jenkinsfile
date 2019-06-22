@@ -27,7 +27,12 @@ pipeline {
     string(
       name: 'REGION',
       defaultValue: '',
-      description: 'CloudFormation region'
+      description: 'AWS CLI region name'
+    )
+    string(
+      name: 'PROFILE',
+      defaultValue: '',
+      description: 'AWS CLI profile name'
     )
     string(
       name: 'STACK_NAME',
@@ -86,9 +91,27 @@ pipeline {
     stage('Create Stack') {
       steps {
         dir ("${params.WORKING_DIR}") {
-           sh "aws cloudformation create-stack --stack-name ${params.STACK_NAME} --template-body file://${params.TEMPLATE_FILE_PATH} --region ${params.REGION} ${params.EXTRA_ARGS}"
-           sh "aws cloudformation wait stack-create-complete --stack-name ${params.STACK_NAME} --region ${params.REGION} ${params.EXTRA_ARGS}"
-           sh "aws cloudformation describe-stacks --stack-name ${params.STACK_NAME} --region ${params.REGION} ${params.EXTRA_ARGS}"
+           // Create Stack
+           sh "aws cloudformation create-stack \
+              --stack-name ${params.STACK_NAME} \
+              --template-body file://${params.TEMPLATE_FILE_PATH} \
+              --region ${params.REGION} \
+              --profile ${params.PROFILE} \
+              ${params.EXTRA_ARGS}"
+
+           // Wait until Stack is created completely
+           sh "aws cloudformation wait stack-create-complete \
+              --stack-name ${params.STACK_NAME} \
+              --region ${params.REGION} \
+              --profile ${params.PROFILE} \
+              ${params.EXTRA_ARGS}"
+
+           // Print CloudFormation create command resutls
+           sh "aws cloudformation describe-stacks \
+              --stack-name ${params.STACK_NAME} \
+              --region ${params.REGION} \
+              --profile ${params.PROFILE} \
+              ${params.EXTRA_ARGS}"
         }
       }
     }
