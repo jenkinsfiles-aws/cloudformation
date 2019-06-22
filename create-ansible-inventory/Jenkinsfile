@@ -8,7 +8,7 @@ pipeline {
     string(
       name: 'EXTRA_ARGS',
       defaultValue: '',
-      description: 'CloudFormation extra arguments'
+      description: 'AWS CLI extra arguments'
     )
     string(
       name: 'INVENTORY_FILE_NAME',
@@ -16,9 +16,14 @@ pipeline {
       description: 'Ansible Inventory file name. The file would be stored to $ANSIBLE_INVENTORY_DIR, which is defined in Jenkins Server as an environment variable'
     )
     string(
+      name: 'PROFILE',
+      defaultValue: '',
+      description: 'AWS CLI profile name'
+    )
+    string(
       name: 'REGION',
       defaultValue: '',
-      description: 'CloudFormation region'
+      description: 'AWS CLI region name'
     )
     string(
       name: 'STACK_NAME',
@@ -50,17 +55,18 @@ pipeline {
                                          returnStdout: true,
                                          script: " aws cloudformation describe-stacks \
                                                   --stack-name ${params.STACK_NAME} \
+                                                  --profile ${params.PROFILE} \
                                                   --region ${params.REGION} \
                                                   ${params.EXTRA_ARGS} \
                                                   | jq '.Stacks[].Outputs[].OutputValue' \
                                                   | sed -e 's/\"//g'"
                                       ).trim()
 
-             // Check if stack exists
+             // Check if stack exists or AWS CLI command is valid
              if ( vpcId =~ /^vpc-*/ ) {
                println vpcId
              } else {
-               error "Check if stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
+               error "See error messages, or check if stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
              }
 
              // JSON file to be parsed
@@ -69,6 +75,7 @@ pipeline {
              // Create JSON file from aws cloudformation command
              sh "aws ec2 describe-instances \
                  --filters 'Name=vpc-id, Values=$vpcId' \
+                 --profile ${params.PROFILE} \
                  --region ${params.REGION} \
                  ${params.EXTRA_ARGS} > $output_json"
 
