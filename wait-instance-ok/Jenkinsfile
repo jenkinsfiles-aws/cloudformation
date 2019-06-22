@@ -27,24 +27,46 @@ pipeline {
       steps {
         dir ("${params.WORKING_DIR}") {
            script {
-             def instanceId = sh(
-                                returnStdout: true,
-                                script: "aws cloudformation describe-stacks \
-                                        --stack-name ${params.STACK_NAME} \
-                                        --region ${params.REGION} \
-                                        ${params.EXTRA_ARGS} \
-                                        | jq '.Stacks[].Outputs[].OutputValue' \
-                                        | sed -e 's/\"//g' \
-                                        | awk 'NR==1'"
-                              ).trim()
+             def vpcId           = sh (
+                                         returnStdout: true,
+                                         script: " aws cloudformation describe-stacks \
+                                                  --stack-name ${params.STACK_NAME} \
+                                                  --region ${params.REGION} \
+                                                  ${params.EXTRA_ARGS} \
+                                                  | jq '.Stacks[].Outputs[].OutputValue' \
+                                                  | sed -e 's/\"//g'"
+                                      ).trim()
 
-             if ( instanceId =~ /^i-*/ ) {
+             // Check if stack exists
+             if ( vpcId =~ /^vpc-*/ ) {
+               println vpcId
+             } else {
+               error "Check if stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
+             }
+
+             def instanceId      = sh (
+                                         returnStdout: true,
+                                         script: "aws ec2 describe-instances \
+                                                 --filters 'Name=vpc-id, Values=$vpcId' \
+                                                 --region ${params.REGION} \
+                                                 ${params.EXTRA_ARGS} \
+                                                 | jq '.Reservations[].Instances[].InstanceId' \
+                                                 | sed -e 's/\"//g'"
+                                       ).trim().split()
+
+             // Check if more than one EC2 instance is created
+             if ( instanceId.size() == 0 ) {
+               error "Cannot get EC2 instance ID.\n\
+Check if CloudFormation template is vaild format, or stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
+             }
+
+             // Wait until EC2 instance status is ok
+             for (i = 0; i < instanceId.size(); i++) {
+               def id = instanceId[i]
                sh "aws ec2 wait instance-status-ok \
-                   --instance-ids $instanceId \
+                   --instance-ids $id \
                    --region ${params.REGION}  \
                    ${params.EXTRA_ARGS}"
-             } else {
-               error "$instanceId\n Check if stack name is vaild or stack is ready."
              }
           }
         }
