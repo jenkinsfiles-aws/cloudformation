@@ -8,12 +8,17 @@ pipeline {
     string(
       name: 'EXTRA_ARGS',
       defaultValue: '',
-      description: 'CloudFormation extra arguments'
+      description: 'AWS CLI extra arguments'
     )
     string(
       name: 'REGION',
       defaultValue: '',
-      description: 'CloudFormation region'
+      description: 'AWS CLI region name'
+    )
+    string(
+      name: 'PROFILE',
+      defaultValue: '',
+      description: 'AWS CLI profile name'
     )
     string(
       name: 'STACK_NAME',
@@ -31,6 +36,7 @@ pipeline {
                                          returnStdout: true,
                                          script: " aws cloudformation describe-stacks \
                                                   --stack-name ${params.STACK_NAME} \
+                                                  --profile ${params.PROFILE} \
                                                   --region ${params.REGION} \
                                                   ${params.EXTRA_ARGS} \
                                                   | jq '.Stacks[].Outputs[].OutputValue' \
@@ -48,6 +54,7 @@ pipeline {
                                          returnStdout: true,
                                          script: "aws ec2 describe-instances \
                                                  --filters 'Name=vpc-id, Values=$vpcId' \
+                                                 --profile ${params.PROFILE} \
                                                  --region ${params.REGION} \
                                                  ${params.EXTRA_ARGS} \
                                                  | jq '.Reservations[].Instances[].InstanceId' \
@@ -65,6 +72,7 @@ Check if CloudFormation template is vaild format, or stack '${params.STACK_NAME}
                def id = instanceId[i]
                sh "aws ec2 wait instance-status-ok \
                    --instance-ids $id \
+                   --profile ${params.PROFILE} \
                    --region ${params.REGION}  \
                    ${params.EXTRA_ARGS}"
              }
