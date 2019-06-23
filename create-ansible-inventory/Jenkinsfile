@@ -161,7 +161,7 @@ Check if CloudFormation template is vaild format."
 
              for (i = 0; i < ip4address.size(); i++) {
                def group = inventory_group[i]
-               sh "echo '    $group' >> ansible_inventory.txt"
+               sh "echo '    $group:' >> ansible_inventory.txt"
 
                def host = ip4address[i]
                sh "echo '      ansible_host: $host' >> ansible_inventory.txt"
