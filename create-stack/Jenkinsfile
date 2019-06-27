@@ -4,15 +4,11 @@ pipeline {
 
   agent any
 
-  environment {
-    CFN_TMP = "cfn.sh"
-  }
-
   parameters {
     string(
       name: 'EXTRA_ARGS',
       defaultValue: '',
-      description: 'CloudFormation extra arguments'
+      description: 'aws cloudformation create-stack command extra arguments'
     )
     string(
       name: 'GIT_BRANCHES_CFN',
@@ -103,15 +99,13 @@ pipeline {
            sh "aws cloudformation wait stack-create-complete \
               --stack-name ${params.STACK_NAME} \
               --region ${params.REGION} \
-              --profile ${params.PROFILE} \
-              ${params.EXTRA_ARGS}"
+              --profile ${params.PROFILE}"
 
            // Print CloudFormation create command resutls
            sh "aws cloudformation describe-stacks \
               --stack-name ${params.STACK_NAME} \
               --region ${params.REGION} \
-              --profile ${params.PROFILE} \
-              ${params.EXTRA_ARGS}"
+              --profile ${params.PROFILE}"
         }
       }
     }
