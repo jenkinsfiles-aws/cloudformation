@@ -6,6 +6,11 @@ pipeline {
 
   parameters {
     string(
+      name: 'AWS_CREDENTIALS_ID',
+      defaultValue: '',
+      description: 'AWS credentials id, stored in Jenkins credentials'
+    )
+    string(
       name: 'EXTRA_ARGS',
       defaultValue: '',
       description: 'CloudFormation extra arguments'
@@ -14,11 +19,6 @@ pipeline {
       name: 'REGION',
       defaultValue: '',
       description: 'AWS CLI region name'
-    )
-    string(
-      name: 'PROFILE',
-      defaultValue: '',
-      description: 'AWS CLI profile name'
     )
     string(
       name: 'STACK_NAME',
@@ -30,26 +30,22 @@ pipeline {
   stages {
     stage('Delete Stack') {
       steps {
-        // Check if stack exits. If stack does not exits, return error.
-        sh  "aws cloudformation describe-stacks \
-            --stack-name ${params.STACK_NAME} \
-            --profile ${params.PROFILE} \
-            --region ${params.REGION} \
-            ${params.EXTRA_ARGS}" 
-
-        // Delete Stack
-        sh "aws cloudformation delete-stack \
-           --stack-name ${params.STACK_NAME} \
-           --region ${params.REGION} \
-           --profile ${params.PROFILE} \
-           ${params.EXTRA_ARGS}"
-
-        // Wait until Stack is deleted completely
-        sh "aws cloudformation wait stack-delete-complete \
-           --stack-name ${params.STACK_NAME} \
-           --region ${params.REGION} \
-           --profile ${params.PROFILE} \
-           ${params.EXTRA_ARGS}"
+        withAWS(credentials:"${params.AWS_CREDENTIALS_ID}", region:"${params.REGION}") {
+          // Check if stack exits. If stack does not exits, return error.
+          sh  "aws cloudformation describe-stacks \
+              --stack-name ${params.STACK_NAME} \
+              ${params.EXTRA_ARGS}" 
+  
+          // Delete Stack
+          sh "aws cloudformation delete-stack \
+             --stack-name ${params.STACK_NAME} \
+             ${params.EXTRA_ARGS}"
+  
+          // Wait until Stack is deleted completely
+          sh "aws cloudformation wait stack-delete-complete \
+             --stack-name ${params.STACK_NAME} \
+             ${params.EXTRA_ARGS}"
+        }
       }
     }
   }

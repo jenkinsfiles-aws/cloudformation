@@ -6,6 +6,11 @@ pipeline {
 
   parameters {
     string(
+      name: 'AWS_CREDENTIALS_ID',
+      defaultValue: '',
+      description: 'AWS credentials id, stored in Jenkins credentials'
+    )
+    string(
       name: 'EXTRA_ARGS',
       defaultValue: '',
       description: 'AWS CLI extra arguments'
@@ -14,11 +19,6 @@ pipeline {
       name: 'REGION',
       defaultValue: '',
       description: 'AWS CLI region name'
-    )
-    string(
-      name: 'PROFILE',
-      defaultValue: '',
-      description: 'AWS CLI profile name'
     )
     string(
       name: 'STACK_NAME',
@@ -30,52 +30,48 @@ pipeline {
   stages {
     stage('Wait until EC2 instance is ok') {
       steps {
-        dir ("${params.WORKING_DIR}") {
-           script {
-             def vpcId           = sh (
-                                         returnStdout: true,
-                                         script: " aws cloudformation describe-stacks \
-                                                  --stack-name ${params.STACK_NAME} \
-                                                  --profile ${params.PROFILE} \
-                                                  --region ${params.REGION} \
+        withAWS(credentials:"${params.AWS_CREDENTIALS_ID}", region:"${params.REGION}") {
+          dir ("${params.WORKING_DIR}") {
+            script {
+              def vpcId           = sh (
+                                          returnStdout: true,
+                                          script: " aws cloudformation describe-stacks \
+                                                   --stack-name ${params.STACK_NAME} \
+                                                   ${params.EXTRA_ARGS} \
+                                                   | jq '.Stacks[].Outputs[].OutputValue' \
+                                                   | sed -e 's/\"//g'"
+                                       ).trim()
+ 
+              // Check if stack exists
+              if ( vpcId =~ /^vpc-*/ ) {
+                println vpcId
+              } else {
+                error "Check if stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
+              }
+ 
+              def instanceId      = sh (
+                                          returnStdout: true,
+                                          script: "aws ec2 describe-instances \
+                                                  --filters 'Name=vpc-id, Values=$vpcId' \
                                                   ${params.EXTRA_ARGS} \
-                                                  | jq '.Stacks[].Outputs[].OutputValue' \
+                                                  | jq '.Reservations[].Instances[].InstanceId' \
                                                   | sed -e 's/\"//g'"
-                                      ).trim()
-
-             // Check if stack exists
-             if ( vpcId =~ /^vpc-*/ ) {
-               println vpcId
-             } else {
-               error "Check if stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
-             }
-
-             def instanceId      = sh (
-                                         returnStdout: true,
-                                         script: "aws ec2 describe-instances \
-                                                 --filters 'Name=vpc-id, Values=$vpcId' \
-                                                 --profile ${params.PROFILE} \
-                                                 --region ${params.REGION} \
-                                                 ${params.EXTRA_ARGS} \
-                                                 | jq '.Reservations[].Instances[].InstanceId' \
-                                                 | sed -e 's/\"//g'"
-                                       ).trim().split()
-
-             // Check if more than one EC2 instance is created
-             if ( instanceId.size() == 0 ) {
-               error "Cannot get EC2 instance ID.\n\
+                                        ).trim().split()
+ 
+              // Check if more than one EC2 instance is created
+              if ( instanceId.size() == 0 ) {
+                error "Cannot get EC2 instance ID.\n\
 Check if CloudFormation template is vaild format, or stack '${params.STACK_NAME}' exists or stack '${params.STACK_NAME}' is ready."
-             }
-
-             // Wait until EC2 instance status is ok
-             for (i = 0; i < instanceId.size(); i++) {
-               def id = instanceId[i]
-               sh "aws ec2 wait instance-status-ok \
-                   --instance-ids $id \
-                   --profile ${params.PROFILE} \
-                   --region ${params.REGION}  \
-                   ${params.EXTRA_ARGS}"
-             }
+              }
+ 
+              // Wait until EC2 instance status is ok
+              for (i = 0; i < instanceId.size(); i++) {
+                def id = instanceId[i]
+                sh "aws ec2 wait instance-status-ok \
+                    --instance-ids $id \
+                    ${params.EXTRA_ARGS}"
+              }
+            }
           }
         }
       }

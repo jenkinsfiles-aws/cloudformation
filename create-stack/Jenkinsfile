@@ -6,6 +6,11 @@ pipeline {
 
   parameters {
     string(
+      name: 'AWS_CREDENTIALS_ID',
+      defaultValue: '',
+      description: 'AWS credentials id, stored in Jenkins credentials'
+    )
+    string(
       name: 'EXTRA_ARGS',
       defaultValue: '',
       description: 'aws cloudformation create-stack command extra arguments'
@@ -13,22 +18,17 @@ pipeline {
     string(
       name: 'GIT_BRANCHES_CFN',
       defaultValue: '*/master',
-      description: "Git branch or tag name or commit id to retrieve of GIT_URL to retrieve CloudFormation template file"
+      description: "Git branch or tag name or commit id to retrieve of GIT_URL of CloudFormation template file"
     )
     string(
       name: 'GIT_URL',
-      defaultValue: 'https://github.com/aws-cloudformation-tm/vpc.git',
+      defaultValue: '',
       description: "GitHub URL to retrieve CloudFormation template"
     )
     string(
       name: 'REGION',
       defaultValue: '',
       description: 'AWS CLI region name'
-    )
-    string(
-      name: 'PROFILE',
-      defaultValue: '',
-      description: 'AWS CLI profile name'
     )
     string(
       name: 'STACK_NAME',
@@ -86,26 +86,22 @@ pipeline {
 
     stage('Create Stack') {
       steps {
-        dir ("${params.WORKING_DIR}") {
-           // Create Stack
-           sh "aws cloudformation create-stack \
-              --stack-name ${params.STACK_NAME} \
-              --template-body file://${params.TEMPLATE_FILE_PATH} \
-              --region ${params.REGION} \
-              --profile ${params.PROFILE} \
-              ${params.EXTRA_ARGS}"
-
-           // Wait until Stack is created completely
-           sh "aws cloudformation wait stack-create-complete \
-              --stack-name ${params.STACK_NAME} \
-              --region ${params.REGION} \
-              --profile ${params.PROFILE}"
-
-           // Print CloudFormation create command resutls
-           sh "aws cloudformation describe-stacks \
-              --stack-name ${params.STACK_NAME} \
-              --region ${params.REGION} \
-              --profile ${params.PROFILE}"
+        withAWS(credentials:"${params.AWS_CREDENTIALS_ID}", region:"${params.REGION}") {
+          dir ("${params.WORKING_DIR}") {
+             // Create Stack
+             sh "aws cloudformation create-stack \
+                --stack-name ${params.STACK_NAME} \
+                --template-body file://${params.TEMPLATE_FILE_PATH} \
+                ${params.EXTRA_ARGS}"
+  
+             // Wait until Stack is created completely
+             sh "aws cloudformation wait stack-create-complete \
+                --stack-name ${params.STACK_NAME}" 
+  
+             // Print CloudFormation create command resutls
+             sh "aws cloudformation describe-stacks \
+                --stack-name ${params.STACK_NAME}"
+          }
         }
       }
     }
