@@ -1,0 +1,40 @@
+#!groovy
+
+pipeline {
+
+  agent any
+
+  parameters {
+    string(
+      name: 'AWS_CREDENTIALS_ID',
+      defaultValue: '',
+      description: 'AWS credentials id, stored in Jenkins credentials'
+    )
+    string(
+      name: 'REGION',
+      defaultValue: '',
+      description: 'AWS CLI region name'
+    )
+    string(
+      name: 'WORKING_DIR',
+      defaultValue: 'cfn',
+      description: 'Job working directory'
+    )
+  }
+
+  stages {
+    stage('Upload file') {
+      steps {
+        withAWS(credentials:"${params.AWS_CREDENTIALS_ID}", region:"${params.REGION}") {
+          dir ("${params.WORKING_DIR}") {
+             // Create Stack
+             echo "test text" > test.txt
+  
+             // Print CloudFormation create command resutls
+             sh "aws s3 cp test.txt s3://tomonorimatsumura/test2.txt"
+          }
+        }
+      }
+    }
+  }
+}
