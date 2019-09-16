@@ -1,0 +1,146 @@
+#!groovy
+
+pipeline {
+
+  agent any
+
+  parameters {
+    string(
+      name: 'AWS_CREDENTIALS_ID',
+      defaultValue: '',
+      description: 'AWS credentials id, stored in Jenkins credentials'
+    )
+    string(
+      name: 'EXTRA_ARGS',
+      defaultValue: '',
+      description: 'AWS CLI extra arguments'
+    )
+    string(
+      name: 'GIT_BRANCHES_CFN',
+      defaultValue: '*/master',
+      description: "Git branch or tag name or commit id to retrieve of GIT_URL of CloudFormation template file"
+    )
+    string(
+      name: 'GIT_URL_CFN',
+      defaultValue: '',
+      description: "GitHub URL to retrieve CloudFormation template"
+    )
+    string(
+      name: 'TEMPLATE_FILE_PATH',
+      defaultValue: '',
+      description: 'CloudFormation template file path'
+    )
+    string(
+      name: 'REGION',
+      defaultValue: '',
+      description: 'AWS CLI region name'
+    )
+    string(
+      name: 'STACK_NAME',
+      defaultValue: '',
+      description: 'CloudFormation stack name'
+    )
+    string(
+      name: 'WORKING_DIR',
+      defaultValue: 'cfn',
+      description: 'Job working directory'
+    )
+  }
+
+  stages {
+    stage('Initialize wokring directory') {
+      steps {
+        dir ("${params.WORKING_DIR}") {
+          cleanWs()
+        }
+      }
+    }
+
+    stage('Create CloudFormation Stack') {
+      steps {
+        build job: 'aws/cloudformation/create-stack',
+          parameters: [
+                        string(
+                          name: 'AWS_CREDENTIALS_ID',
+                          value: "${params.AWS_CREDENTIALS_ID}"
+                        ),
+                        string(
+                          name: 'EXTRA_ARGS',
+                          value: "${params.EXTRA_ARGS}"
+                        ),
+                        string(
+                          name: 'GIT_BRANCHES_CFN',
+                          value: "${params.GIT_BRANCHES_CFN}"
+                        ),
+                        string(
+                          name: 'GIT_URL',
+                          value: "${params.GIT_URL_CFN}"
+                        ),
+                        string(
+                          name: 'REGION',
+                          value: "${params.REGION}"
+                        ),
+                        string(
+                          name: 'STACK_NAME',
+                          value: "${params.STACK_NAME}"
+                        ),
+                        string(
+                          name: 'TEMPLATE_FILE_PATH',
+                          value: "${params.TEMPLATE_FILE_PATH}"
+                        ),
+                        string(
+                          name: 'WORKING_DIR',
+                          value: "${env.WORKING_DIR}"
+                        )
+                      ]
+
+      }
+    }
+
+    stage('Wait instance ok') {
+      steps {
+        build job: 'aws/cloudformation/wait-instance-ok',
+          parameters: [
+                        string(
+                          name: 'AWS_CREDENTIALS_ID',
+                          value: "${params.AWS_CREDENTIALS_ID}"
+                        ),
+                        string(
+                          name: 'REGION',
+                          value: "${params.REGION}"
+                        ),
+                        string(
+                          name: 'STACK_NAME',
+                          value: "${params.STACK_NAME}"
+                        )
+                      ]
+
+      }
+    }
+
+    stage('Create Ansible inventory file') {
+      steps {
+        build job: 'aws/cloudformation/create-ansible-inventory',
+          parameters: [
+                        string(
+                          name: 'AWS_CREDENTIALS_ID',
+                          value: "${params.AWS_CREDENTIALS_ID}"
+                        ),
+                        string(
+                          name: 'INVENTORY_FILE_NAME',
+                          value: "${params.STACK_NAME}"
+                        ),
+                        string(
+                          name: 'REGION',
+                          value: "${params.REGION}"
+                        ),
+                        string(
+                          name: 'STACK_NAME',
+                          value: "${params.STACK_NAME}"
+                        )
+                      ]
+
+      }
+    }
+  }
+}
