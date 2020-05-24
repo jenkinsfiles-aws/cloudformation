@@ -173,7 +173,7 @@ Check if CloudFormation template is vaild format."
                sh "cat ansible_inventory.txt > ${env.ANSIBLE_INVENTORY_DIR}/${params.INVENTORY_FILE_NAME}"
 
                // Store credentials
-               def uploader = load('create-ansible-inventory/store-credentials.groovy')
+               def uploader = load('${params.WORKING_DIR}/create-ansible-inventory/store-credentials.groovy')
                credentials-uploader.upload()
             }
           }
