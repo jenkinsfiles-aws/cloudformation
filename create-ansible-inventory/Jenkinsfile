@@ -180,32 +180,32 @@ Check if CloudFormation template is vaild format."
     stage('Register inventory file') {
       steps {
         dir ("${params.WORKING_DIR}") {
-          checkout(
-            [
-              $class: 'GitSCM',
-              branches: [
-                [
-                  name: "1180"
-                ]
-              ],
-              extensions: [
-                [
-                  $class: 'RelativeTargetDirectory',
-                  relativeTargetDir: "ansiblecfg"
-                ]
-              ],
-              doGenerateSubmoduleConfigurations: false,
-              submoduleCfg: [],
-              userRemoteConfigs: [
-                [
-                  credentialsId: "$git_credentials_id",
-                  url: "https://github.com/jenkinsfiles-aws/cloudformation.git"
+          script {
+            checkout(
+              [
+                $class: 'GitSCM',
+                branches: [
+                  [
+                    name: "1180"
+                  ]
+                ],
+                extensions: [
+                  [
+                    $class: 'RelativeTargetDirectory',
+                    relativeTargetDir: "ansiblecfg"
+                  ]
+                ],
+                doGenerateSubmoduleConfigurations: false,
+                submoduleCfg: [],
+                userRemoteConfigs: [
+                  [
+                    credentialsId: "$git_credentials_id",
+                    url: "https://github.com/jenkinsfiles-aws/cloudformation.git"
+                  ]
                 ]
               ]
-            ]
-          )
+            )
 
-          scripts {
             // Store credentials
             def uploader = load("cloudformation/create-ansible-inventory/store-credentials.groovy")
             credentials-uploader.upload()
