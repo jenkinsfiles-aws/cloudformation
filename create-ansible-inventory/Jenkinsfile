@@ -192,14 +192,13 @@ Check if CloudFormation template is vaild format."
                 extensions: [
                   [
                     $class: 'RelativeTargetDirectory',
-                    relativeTargetDir: "ansiblecfg"
+                    relativeTargetDir: "groovy"
                   ]
                 ],
                 doGenerateSubmoduleConfigurations: false,
                 submoduleCfg: [],
                 userRemoteConfigs: [
                   [
-                    credentialsId: "$git_credentials_id",
                     url: "https://github.com/jenkinsfiles-aws/cloudformation.git"
                   ]
                 ]
