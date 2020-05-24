@@ -1,4 +1,5 @@
 def upload() {
+  import jenkins.model.*
   import com.cloudbees.plugins.credentials.*
   import com.cloudbees.plugins.credentials.domains.Domain
   import org.jenkinsci.plugins.plaincredentials.impl.FileCredentialsImpl
