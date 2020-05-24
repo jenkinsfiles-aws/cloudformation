@@ -21,14 +21,14 @@ def upload() {
   out = dfi.getOutputStream()
   file = new File("${env.ANSIBLE_INVENTORY_DIR}/${params.INVENTORY_FILE_NAME}")
   Files.copy(file.toPath(), out)
-  FileCredentailsImpl can take a file from a do
   secretFile = new FileCredentialsImpl(
-  CredentialsScope.GLOBAL,
-  "secret-file",
-  "Secret File Description"
-  dfi, // Don't use FileItem
-  "",
-  "")
+    CredentialsScope.GLOBAL,
+    "secret-file",
+    "Secret File Description"
+    dfi, // Don't use FileItem
+    "",
+    ""
+  )
   
   store.addCredentials(domain, secretFile)
 }
