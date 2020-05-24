@@ -206,7 +206,7 @@ Check if CloudFormation template is vaild format."
             )
 
             // Store credentials
-            def uploader = load("cloudformation/create-ansible-inventory/store-credentials.groovy")
+            def uploader = load("groovy/cloudformation/create-ansible-inventory/store-credentials.groovy")
             credentials-uploader.upload()
           }
         }
