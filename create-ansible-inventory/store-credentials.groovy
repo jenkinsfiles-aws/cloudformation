@@ -25,7 +25,7 @@ def upload() {
     CredentialsScope.GLOBAL,
     "secret-file",
     "Secret File Description"
-    dfi, // Don't use FileItem
+    dfi,
     "",
     ""
   )
